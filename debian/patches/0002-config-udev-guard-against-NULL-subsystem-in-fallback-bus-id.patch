@@ -1,0 +1,46 @@
+Description: config/udev: guard against NULL subsystem in fallback bus id
+ config_udev_get_fallback_bus_id() passes the result of
+ udev_device_get_subsystem() straight into strcmp(). That accessor can return
+ NULL (the device has no subsystem), in which case strcmp(NULL, "pci")
+ dereferences a NULL pointer and the server dies with a SIGSEGV.
+ .
+ The path is reached for any DRM device that has no udev ID_PATH property:
+ config_udev_odev_setup_attribs() falls back to
+ config_udev_get_fallback_bus_id() when ID_PATH is absent. DisplayLink/evdi
+ virtual cards have no ID_PATH, so add/remove of an evdi card through the udev
+ monitor runs this path; when the parent device reports no subsystem the
+ strcmp faults.
+ .
+ This is the same NULL-subsystem-into-strcmp bug class that commit 429ee86a
+ ("udev: Fixed NULL pointer argument of strcmp", 2019) fixed for the four
+ sibling callers in this file. config_udev_get_fallback_bus_id() was added
+ later by commit 2f53d1cf (MR !648, 2021) without the guard, reintroducing the
+ already-fixed bug class on a new path. Extend the same guard to the subsystem
+ lookup, matching the existing idiom in this file.
+Origin: upstream, https://gitlab.freedesktop.org/xorg/xserver/-/commit/9babe7e7f687
+Bug: https://gitlab.freedesktop.org/xorg/xserver/-/issues/1905
+Bug-Ubuntu: https://bugs.launchpad.net/ubuntu/+source/xorg-server/+bug/2160643
+Applied-Upstream: yes, https://gitlab.freedesktop.org/xorg/xserver/-/merge_requests/2245
+Author: Gary T. Giesen <ggiesen@giesen.me>
+Last-Update: 2026-07-13
+---
+diff --git a/config/udev.c b/config/udev.c
+--- a/config/udev.c
++++ b/config/udev.c
+@@ -512,13 +512,15 @@ static char*
+ config_udev_get_fallback_bus_id(struct udev_device *udev_device)
+ {
+     const char *sysname;
++    const char *subsys;
+     char *busid;
+
+     udev_device = udev_device_get_parent(udev_device);
+     if (udev_device == NULL)
+         return NULL;
+
+-    if (strcmp(udev_device_get_subsystem(udev_device), "pci") != 0)
++    subsys = udev_device_get_subsystem(udev_device);
++    if (!subsys || strcmp(subsys, "pci") != 0)
+         return NULL;
+
+     sysname = udev_device_get_sysname(udev_device);

@@ -1,0 +1,45 @@
+Description: xfree86: set GPU screen FB/DGA defaults on runtime hotplug
+ When a platform GPU device is added at runtime, xf86platformAddDevice()
+ calls AddGPUScreen() without first assigning the EnableDisableFBAccess and
+ SetDGAMode function-pointer defaults. The boot path in xf86Init.c sets both
+ for every GPU screen before it calls AddGPUScreen(), so a screen added by
+ hotplug is left with SetDGAMode == NULL.
+ .
+ modesetting's ScreenInit reaches xf86CrtcScreenInit(), which wraps
+ DGACloseScreen() onto the screen regardless of how the screen was created.
+ When the device is later removed, xf86platformRemoveDevice() tears the GPU
+ screen down and DGACloseScreen() calls pScrn->SetDGAMode(pScrn, 0, NULL). On
+ a hotplug-added screen that pointer is NULL, so the call faults and takes
+ down the server with a SIGSEGV.
+ .
+ This is not DisplayLink-specific: any modesetting platform GPU screen added
+ at runtime and later removed hits it. DisplayLink/evdi just makes it easy to
+ reproduce, because the evdi platform device is added and reconfigured at
+ runtime. Mirror the boot path by assigning the same defaults in
+ xf86platformAddDevice() immediately before the AddGPUScreen() call.
+Origin: upstream, https://gitlab.freedesktop.org/xorg/xserver/-/commit/dbcd36b38faac64f23006825d6441d9ecec7310a
+Bug: https://gitlab.freedesktop.org/xorg/xserver/-/issues/1904
+Bug-Ubuntu: https://bugs.launchpad.net/ubuntu/+source/xorg-server/+bug/2160643
+Applied-Upstream: yes, https://gitlab.freedesktop.org/xorg/xserver/-/merge_requests/2244
+Author: Gary T. Giesen <ggiesen@giesen.me>
+Last-Update: 2026-07-13
+---
+diff --git a/hw/xfree86/common/xf86platformBus.c b/hw/xfree86/common/xf86platformBus.c
+--- a/hw/xfree86/common/xf86platformBus.c
++++ b/hw/xfree86/common/xf86platformBus.c
+@@ -718,6 +718,15 @@ xf86platformAddDevice(const char *driver_name, int index)
+         return -1;
+     }
+
++   /*
++    * Almost everything uses these defaults, and many of those that
++    * don't, will wrap them.
++    */
++   xf86GPUScreens[i]->EnableDisableFBAccess = xf86EnableDisableFBAccess;
++#ifdef XFreeXDGA
++   xf86GPUScreens[i]->SetDGAMode = xf86SetDGAMode;
++#endif
++
+    scr_index = AddGPUScreen(xf86GPUScreens[i]->ScreenInit, 0, NULL);
+    if (scr_index == -1) {
+        xf86DeleteScreen(xf86GPUScreens[i]);

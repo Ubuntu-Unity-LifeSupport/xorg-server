@@ -1,0 +1,89 @@
+From 41c58693c323978ce610ec6f8805a7d604e61f22 Mon Sep 17 00:00:00 2001
+From: Mario Limonciello <mario.limonciello@amd.com>
+Date: Mon, 23 Jun 2025 22:30:46 -0500
+Subject: [PATCH 1/3] Add check for `pci_device_linux_sysfs_boot_display()`
+
+In the case of multiple display devices that are not VGA devices
+the 'boot_display' attribute read by libpciaccess can disambiguate.
+
+Part-of: <https://gitlab.freedesktop.org/xorg/xserver/-/merge_requests/2038>
+---
+ hw/xfree86/common/xf86pciBus.c      | 3 ++-
+ hw/xfree86/common/xf86platformBus.c | 5 +++--
+ 2 files changed, 5 insertions(+), 3 deletions(-)
+
+Index: xorg-server-21.1.22/hw/xfree86/common/xf86pciBus.c
+===================================================================
+--- xorg-server-21.1.22.orig/hw/xfree86/common/xf86pciBus.c
++++ xorg-server-21.1.22/hw/xfree86/common/xf86pciBus.c
+@@ -113,7 +113,7 @@ xf86PciProbe(void)
+             xf86PciVideoInfo[num - 1] = info;
+ 
+             pci_device_probe(info);
+-            if (primaryBus.type == BUS_NONE && pci_device_is_boot_vga(info)) {
++            if (primaryBus.type == BUS_NONE && pci_device_is_boot_display(info)) {
+                 primaryBus.type = BUS_PCI;
+                 primaryBus.id.pci = info;
+             }
+@@ -122,6 +122,18 @@ xf86PciProbe(void)
+     }
+     free(iter);
+ 
++    /* If no boot display was found, fall back to the boot VGA device */
++    if (primaryBus.type == BUS_NONE) {
++        for (i = 0; i < num; i++) {
++            info = xf86PciVideoInfo[i];
++            if (pci_device_is_boot_vga(info)) {
++                primaryBus.type = BUS_PCI;
++                primaryBus.id.pci = info;
++                break;
++            }
++        }
++    }
++
+     /* If we haven't found a primary device try a different heuristic */
+     if (primaryBus.type == BUS_NONE && num) {
+         for (i = 0; i < num; i++) {
+Index: xorg-server-21.1.22/hw/xfree86/common/xf86platformBus.c
+===================================================================
+--- xorg-server-21.1.22.orig/hw/xfree86/common/xf86platformBus.c
++++ xorg-server-21.1.22/hw/xfree86/common/xf86platformBus.c
+@@ -333,7 +333,8 @@ xf86platformProbe(void)
+         }
+     }
+ 
+-    /* Then check for pci_device_is_boot_vga() */
++    /* After the OutputClass loop above, scan for the primary device via
++     * various methods, preferring boot display over boot VGA. */
+     for (i = 0; i < xf86_num_platform_devices; i++) {
+         struct xf86_platform_device *dev = &xf86_platform_devices[i];
+ 
+@@ -341,12 +342,28 @@ xf86platformProbe(void)
+             continue;
+ 
+         pci_device_probe(dev->pdev);
++        if (pci_device_is_boot_display(dev->pdev)) {
++            primaryBus.type = BUS_PLATFORM;
++            primaryBus.id.plat = dev;
++            return 0;
++        }
++    }
++
++    /* Fall back to boot VGA if no boot display was found. */
++    for (i = 0; i < xf86_num_platform_devices; i++) {
++        struct xf86_platform_device *dev = &xf86_platform_devices[i];
++
++        if (!dev->pdev)
++            continue;
++
+         if (pci_device_is_boot_vga(dev->pdev)) {
+             primaryBus.type = BUS_PLATFORM;
+             primaryBus.id.plat = dev;
++            return 0;
+         }
+     }
+ 
++    /* No primary device found. */
+     return 0;
+ }
+ 

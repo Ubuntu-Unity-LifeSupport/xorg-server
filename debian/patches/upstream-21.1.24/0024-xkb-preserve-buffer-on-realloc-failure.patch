@@ -1,0 +1,55 @@
+From a29a7c1ec5b488b4069ef976e8096cb997074e49 Mon Sep 17 00:00:00 2001
+From: Mikhail Dmitrichenko <m.dmitrichenko222@gmail.com>
+Date: Mon, 25 May 2026 12:46:28 +0300
+Subject: [PATCH 24/35] xkb: preserve buffer on realloc failure
+
+_Concat() stored the realloc() result directly in its input pointer, so
+an allocation failure could drop the only reference to the original
+buffer when callers assigned the return value back to their destination
+pointer.
+
+Keep the old pointer until realloc() succeeds, avoiding the leak
+reported by static analysis.
+
+Found by Linux Verification Center (linuxtesting.org) with SVACE.
+
+Signed-off-by: Mikhail Dmitrichenko <m.dmitrichenko222@gmail.com>
+(cherry picked from commit d6c462f59927b3702a54e0e8ea2a5de7639294e6)
+
+Part-of: <https://gitlab.freedesktop.org/xorg/xserver/-/merge_requests/2247>
+---
+ xkb/maprules.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/xkb/maprules.c b/xkb/maprules.c
+index a096f2087..370186f79 100644
+--- a/xkb/maprules.c
++++ b/xkb/maprules.c
+@@ -471,15 +471,19 @@ CheckLine(InputLine * line,
+ static char *
+ _Concat(char *str1, const char *str2)
+ {
+-    int len;
++    size_t len;
++    char *tmp;
+ 
+     if ((!str1) || (!str2))
+         return str1;
++
+     len = strlen(str1) + strlen(str2) + 1;
+-    str1 = realloc(str1, len * sizeof(char));
+-    if (str1)
+-        strcat(str1, str2);
+-    return str1;
++    tmp = realloc(str1, len);
++    if (!tmp)
++        return str1;
++
++    strcat(tmp, str2);
++    return tmp;
+ }
+ 
+ static void
+-- 
+2.53.0
+

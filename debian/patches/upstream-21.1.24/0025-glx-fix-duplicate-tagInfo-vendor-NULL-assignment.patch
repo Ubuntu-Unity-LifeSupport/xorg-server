@@ -1,0 +1,29 @@
+From c285ed7dc6e429e7747f76c208f9a373261421f8 Mon Sep 17 00:00:00 2001
+From: Peter Hutterer <peter.hutterer@who-t.net>
+Date: Mon, 1 Jun 2026 21:01:58 +1000
+Subject: [PATCH 25/35] glx: fix duplicate tagInfo->vendor = NULL assignment
+
+Assisted-by: Claude:claude-opus-4-6
+(cherry picked from commit 66c4a2a6af70112295a5e163fe75a78d29bd3137)
+
+Part-of: <https://gitlab.freedesktop.org/xorg/xserver/-/merge_requests/2247>
+---
+ glx/vndservermapping.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/glx/vndservermapping.c b/glx/vndservermapping.c
+index 04788ffbd..a4c5f4fc1 100644
+--- a/glx/vndservermapping.c
++++ b/glx/vndservermapping.c
+@@ -159,7 +159,7 @@ GlxContextTagInfo *GlxLookupContextTag(ClientPtr client, GLXContextTag tag)
+ void GlxFreeContextTag(GlxContextTagInfo *tagInfo)
+ {
+     if (tagInfo != NULL) {
+-        tagInfo->vendor = NULL;
++        tagInfo->client = NULL;
+         tagInfo->vendor = NULL;
+         tagInfo->data = NULL;
+         tagInfo->context = None;
+-- 
+2.53.0
+

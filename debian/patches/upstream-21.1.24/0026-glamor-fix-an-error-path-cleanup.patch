@@ -1,0 +1,41 @@
+From f2f7b8293c1f3594b31301159c7ddf4570ea9a7f Mon Sep 17 00:00:00 2001
+From: Peter Hutterer <peter.hutterer@who-t.net>
+Date: Tue, 2 Jun 2026 13:08:37 +1000
+Subject: [PATCH 26/35] glamor: fix an error path cleanup
+
+The GL_OUT_OF_MEMORY error path returns NULL without freeing the
+allocated `bits` buffer or deleting the GL texture.
+
+Assisted-by: Claude:claude-opus-4-6
+(cherry picked from commit 174aac67c99cb7ac26acb6613831c6db0ebd549f)
+
+Part-of: <https://gitlab.freedesktop.org/xorg/xserver/-/merge_requests/2247>
+---
+ glamor/glamor_font.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/glamor/glamor_font.c b/glamor/glamor_font.c
+index c60fa787b..c689455c9 100644
+--- a/glamor/glamor_font.c
++++ b/glamor/glamor_font.c
+@@ -154,11 +154,14 @@ glamor_font_get(ScreenPtr screen, FontPtr font)
+     glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, overall_width, overall_height,
+                  0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, bits);
+     glamor_priv->suppress_gl_out_of_memory_logging = false;
+-    if (glGetError() == GL_OUT_OF_MEMORY)
+-        return NULL;
+-
+     free(bits);
+ 
++    if (glGetError() == GL_OUT_OF_MEMORY) {
++        glDeleteTextures(1, &glamor_font->texture_id);
++        glamor_font->texture_id = 0;
++        return NULL;
++    }
++
+     glamor_font->realized = TRUE;
+ 
+     return glamor_font;
+-- 
+2.53.0
+

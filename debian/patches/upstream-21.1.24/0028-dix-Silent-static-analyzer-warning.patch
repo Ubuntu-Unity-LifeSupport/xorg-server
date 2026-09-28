@@ -1,0 +1,35 @@
+From bf25faf5c1b825f14642f81129b28e04a024356d Mon Sep 17 00:00:00 2001
+From: Olivier Fourdan <ofourdan@redhat.com>
+Date: Tue, 28 Apr 2026 11:06:27 +0200
+Subject: [PATCH 28/35] dix: Silent static analyzer warning
+
+ | dix/dixfonts.c:849:5: var_decl: Declaring variable "namelen" without initializer.
+ | dix/dixfonts.c:932:17: uninit_use: Using uninitialized value "namelen".
+ |    930|                   c->savedNumFonts = numFonts;
+ |    931|                   free(c->savedName);
+ |    932|->                 c->savedName = XNFalloc(namelen + 1);
+ |    933|                   memcpy(c->savedName
+
+(cherry picked from commit f959f1e51f369ac26b6ba5953a3b022407e85b11)
+
+Part-of: <https://gitlab.freedesktop.org/xorg/xserver/-/merge_requests/2247>
+---
+ dix/dixfonts.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/dix/dixfonts.c b/dix/dixfonts.c
+index a7d841c0a..df01912a3 100644
+--- a/dix/dixfonts.c
++++ b/dix/dixfonts.c
+@@ -849,7 +849,7 @@ doListFontsWithInfo(ClientPtr client, LFWIclosurePtr c)
+     FontPathElementPtr fpe;
+     int err = Successful;
+     char *name;
+-    int namelen;
++    int namelen = 0;
+     int numFonts;
+     FontInfoRec fontInfo, *pFontInfo;
+     xListFontsWithInfoReply *reply;
+-- 
+2.53.0
+

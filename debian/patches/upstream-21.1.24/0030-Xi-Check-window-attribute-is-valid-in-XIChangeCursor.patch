@@ -1,0 +1,45 @@
+From ab2766f3473efdc9d13234553d21b0dc4dd780d8 Mon Sep 17 00:00:00 2001
+From: Olivier Fourdan <ofourdan@redhat.com>
+Date: Tue, 23 Jun 2026 14:10:44 +0200
+Subject: [PATCH 30/35] Xi: Check window attribute is valid in XIChangeCursor
+
+The XInput2 request XIChangeCursor() does not specify whether the window
+attribute can be NULL, nor does the code in ProcXIChangeCursor().
+
+As a result, if the window is NULL, the xserver ends up dereferencing a
+NULL pointer and segfaults.
+
+To avoid the issue, check the actual value passed for the window and
+return a BadWindow error if the window was not specified.
+
+Please note that particular error is however not documented in the XI2
+protocol definition [1], yet that seems to be the only sane course of
+action, reading the definition of XIChangeCursor(), a valid window is
+to be expected.
+
+[1] https://xorg.freedesktop.org/archive/current/doc/inputproto/XI2proto.txt
+
+(cherry picked from commit 7aac5d4dc6bc934b7cae40afdfd98261a8e80427)
+
+Part-of: <https://gitlab.freedesktop.org/xorg/xserver/-/merge_requests/2247>
+---
+ Xi/xichangecursor.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/Xi/xichangecursor.c b/Xi/xichangecursor.c
+index a9a1ac9fc..0a498da48 100644
+--- a/Xi/xichangecursor.c
++++ b/Xi/xichangecursor.c
+@@ -89,6 +89,9 @@ ProcXIChangeCursor(ClientPtr client)
+             return rc;
+     }
+ 
++    if (pWin == NullWindow)
++        return BadWindow;
++
+     if (stuff->cursor == None) {
+         if (pWin == pWin->drawable.pScreen->root)
+             pCursor = rootCursor;
+-- 
+2.53.0
+

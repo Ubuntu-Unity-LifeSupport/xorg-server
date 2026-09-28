@@ -1,3 +1,24 @@
+xorg-server (2:21.1.22-1ubuntu1.3+unity2) resolute; urgency=medium
+
+  * Carry upstream 8d604fa14 from server-21.1-branch (after 21.1.24) as
+    debian/patches/upstream-21.1-branch/: FreeGlyph only drops the
+    global glyph entry that is the glyph being freed; duplicate glyphs
+    in one glyphset left the global table short and crashed in
+    FindGlyphRef later (LP: #2163497).
+
+ -- Ubuntu Unity Life Support <mihail.rozshko@gmail.com>  Sat, 26 Sep 2026 14:21:59 +0000
+
+xorg-server (2:21.1.22-1ubuntu1.3+unity1) resolute; urgency=medium
+
+  * Carry the 29 fixes between upstream 21.1.22 and 21.1.24 (release and
+    XQuartz commits left out), as debian/patches/upstream-21.1.24/: CVE-
+    2026-50256..50264 (21.1.23), CVE-2026-55999 and CVE-2026-56000
+    (21.1.24), plus the xkb/Xi/GLX/present hardening released with them.
+    Based on 1ubuntu1.3 (resolute-proposed), so any later Ubuntu upload
+    supersedes it.
+
+ -- Ubuntu Unity Life Support <mihail.rozshko@gmail.com>  Fri, 25 Sep 2026 20:18:28 +0000
+
 xorg-server (2:21.1.22-1ubuntu1.3) resolute; urgency=medium
 
   * Fix two SIGSEGV crashes on runtime GPU-screen (DisplayLink/evdi)

@@ -1,0 +1,52 @@
+From 8a6e5f0fcdf196bd5ba2059816069806d523b665 Mon Sep 17 00:00:00 2001
+From: Peter Hutterer <peter.hutterer@who-t.net>
+Date: Fri, 17 Apr 2026 10:13:51 +1000
+Subject: [PATCH 23/35] dix/colormap: fix out-of-bounds read in
+ FindColorInRootCmap
+
+The for loop here always iterates size times but the client controls the
+starting offset. When the starting pixel is non-zero (e.g., pixel=10 in
+a size=256 colormap), the loop reads from pentFirst[10] through
+pentFirst[265], reading 10 entries past the end of the array.
+
+Fix this by wrapping around once we reach size, same as FindColor()
+already does.
+
+Assisted-by: Claude:claude-claude-opus-4-6
+(cherry picked from commit b4f2807a40fb0b149f475f3e459a3a38fd114096)
+
+Part-of: <https://gitlab.freedesktop.org/xorg/xserver/-/merge_requests/2247>
+---
+ dix/colormap.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/dix/colormap.c b/dix/colormap.c
+index b5b34d656..6e85d6734 100644
+--- a/dix/colormap.c
++++ b/dix/colormap.c
+@@ -1288,7 +1288,7 @@ FindColorInRootCmap(ColormapPtr pmap, EntryPtr pentFirst, int size,
+ 
+     if ((pixel = *pPixel) >= size)
+         pixel = 0;
+-    for (pent = pentFirst + pixel, count = size; --count >= 0; pent++, pixel++) {
++    for (pent = pentFirst + pixel, count = size; --count >= 0;) {
+         if (pent->refcnt > 0 && (*comp) (pent, prgb)) {
+             switch (channel) {
+             case REDMAP:
+@@ -1305,6 +1305,13 @@ FindColorInRootCmap(ColormapPtr pmap, EntryPtr pentFirst, int size,
+             }
+             *pPixel = pixel;
+         }
++        pixel++;
++        if (pixel >= size) {
++            pent = pentFirst;
++            pixel = 0;
++        }
++        else
++            pent++;
+     }
+ }
+ 
+-- 
+2.53.0
+

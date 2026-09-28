@@ -1,0 +1,54 @@
+From c0839d9cbf85261cea20cda2f7d6c8a732e16eb6 Mon Sep 17 00:00:00 2001
+From: Olivier Fourdan <ofourdan@redhat.com>
+Date: Wed, 17 Jun 2026 16:50:34 +0200
+Subject: [PATCH 29/35] dix: Silence a compiler warning in
+ doListFontsWithInfo()
+
+Static analyzer reports:
+
+| dix/dixfonts.c:936:17: uninit_use_in_call: Using uninitialized value "name" when calling "memcpy".
+|   934|                   free(c->savedName);
+|   935|                   c->savedName = XNFalloc(namelen + 1);
+|   936|->                 memcpy(c->savedName, name, namelen + 1);
+|   937|                   aliascount = 20;
+|   938|               }
+
+To silence the warning, we cannot just set "name" to NULL, as this could
+potentially cause a NULL pointer in memcpy(), we also need to check if
+the value was set. If not, just bail out with a BadFontNAme error.
+
+Signed-off-by: Olivier Fourdan <ofourdan@redhat.com>
+(cherry picked from commit 5d011bf3da81595bef25ca89458249c1037a4f51)
+
+Part-of: <https://gitlab.freedesktop.org/xorg/xserver/-/merge_requests/2247>
+---
+ dix/dixfonts.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/dix/dixfonts.c b/dix/dixfonts.c
+index df01912a3..8956911d4 100644
+--- a/dix/dixfonts.c
++++ b/dix/dixfonts.c
+@@ -848,7 +848,7 @@ doListFontsWithInfo(ClientPtr client, LFWIclosurePtr c)
+ {
+     FontPathElementPtr fpe;
+     int err = Successful;
+-    char *name;
++    char *name = NULL;
+     int namelen = 0;
+     int numFonts;
+     FontInfoRec fontInfo, *pFontInfo;
+@@ -912,6 +912,10 @@ doListFontsWithInfo(ClientPtr client, LFWIclosurePtr c)
+              * is BadFontName, indicating the alias resolution
+              * is complete.
+              */
++            if (!name) {
++                err = BadFontName;
++                goto ContBadFontName;
++            }
+             if (c->haveSaved) {
+                 char *tmpname;
+                 int tmpnamelen;
+-- 
+2.53.0
+
